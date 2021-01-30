@@ -1,0 +1,9 @@
+[submodule "micropython-async"]
+	path = micropython-async
+	url = https://github.com/peterhinch/micropython-async.git
+[submodule "micropython-mqtt"]
+	path = micropython-mqtt
+	url = https://github.com/peterhinch/micropython-mqtt.git
+[submodule "micropython-rotary"]
+	path = micropython-rotary
+	url = https://github.com/miketeachman/micropython-rotary.git
