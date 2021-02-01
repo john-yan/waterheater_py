@@ -3,14 +3,8 @@ import uasyncio as aio
 from machine import Pin, ADC
 from lib.controller import Controller
 from lib.mqtt_connect import MQTTConnect
-
-default_rotary_encoder_pin_config = {
-
-    # Digital input pins
-    'rot_enc_clk': 27,
-    'rot_enc_dt': 26,
-    'rot_btn': 25,
-}
+from lib.rotary import Rotary
+from lib.display import Display
 
 
 async def heartbeat():
@@ -25,7 +19,13 @@ async def heartbeat():
 def main():
     ctl = Controller();
     mqtt_conn = MQTTConnect(ctl)
+    rotary = Rotary(ctl)
+    display = Display(ctl)
     ctl.set_mqtt_connect(mqtt_conn)
-    aio.run(aio.gather(ctl.run(), heartbeat(), mqtt_conn.run()));
+    aio.run(aio.gather(heartbeat(),
+                       ctl.run(),
+                       mqtt_conn.run(),
+                       rotary.run(),
+                       display.run()));
 
 main()

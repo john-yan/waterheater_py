@@ -7,3 +7,6 @@
 [submodule "micropython-rotary"]
 	path = micropython-rotary
 	url = https://github.com/miketeachman/micropython-rotary.git
+[submodule "python_lcd"]
+	path = python_lcd
+	url = https://github.com/john-yan/python_lcd.git

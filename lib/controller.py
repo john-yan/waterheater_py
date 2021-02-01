@@ -53,6 +53,7 @@ class Controller:
         self._pilot_en = False
         self._fire_en = False
         self._fan_en = False
+        self.current_temp = 0.0
 
         # temptest is reversed
         self.pilot_state(PILOT_OFF_STATE)
@@ -86,6 +87,12 @@ class Controller:
 
     def set_operation(self, op):
         self.operation = op
+
+    def get_current_temp(self):
+        return self.current_temp
+
+    def get_target_temp(self):
+        return self.target_temp
 
     def _adc_to_celcius(self, adc_reading):
         return ATT_MULTIPLIER * adc_reading + ATT_CONSTANT
@@ -158,10 +165,10 @@ class Controller:
         pilot_off = self.pilot_reading <= PILOT_ON_THRESHOLD
 
         thermo_avg = (thermo1_adc + thermo2_adc) / 2
-        temp_in_celsius = self._adc_to_celcius(thermo_avg)
+        self.current_temp = self._adc_to_celcius(thermo_avg)
 
-        below_target = temp_in_celsius < (self.target_temp - self.target_delta)
-        above_target = temp_in_celsius > (self.target_temp + self.target_delta)
+        below_target = self.current_temp < (self.target_temp - self.target_delta)
+        above_target = self.current_temp > (self.target_temp + self.target_delta)
 
         if pilot_off:
             await self.shutdown()
@@ -190,7 +197,7 @@ class Controller:
         if self.report_adc:
             self.mqtt.report_adc(thermo1_adc, thermo2_adc, pilot_adc)
         self.mqtt.report_current_state("off" if pilot_off else "on")
-        self.mqtt.report_current_temp(round(temp_in_celsius, 0))
+        self.mqtt.report_current_temp(round(self.current_temp, 0))
         self.mqtt.report_current_operation('Heating' if self.fire_state() == FIRE_ON_STATE else 'Idle')
 
     async def run(self):
