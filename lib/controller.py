@@ -222,8 +222,9 @@ class Controller:
                 if self.pilot_state() == PILOT_OFF_STATE:
                     self.request_action('pilot_start')
 
-                if self.away_mode and self.fire_state() == FIRE_ON_STATE:
-                    self.request_action('stop_heating')
+                if self.away_mode:
+                    if self.fire_state() == FIRE_ON_STATE:
+                        self.request_action('stop_heating')
                 elif below_target and self.fire_state() == FIRE_OFF_STATE:
                     self.request_action('start_heating')
                 elif above_target and self.fire_state() == FIRE_ON_STATE:
