@@ -11,20 +11,26 @@ default_rotary_encoder_pin_config = {
 }
 
 class Rotary:
+
     def __init__(self, controller, config = default_rotary_encoder_pin_config):
         self.controller = controller
         self.ro = RotaryIRQ(pin_num_clk = config['rot_enc_clk'],
                             pin_num_dt = config['rot_enc_dt'])
+        self.event = aio.Event()
+        self.ro.add_listener(self.callback)
+
+    def callback(self):
+        self.event.set()
 
     async def run(self):
         last = self.ro.value()
         while True:
+            await self.event.wait()
             val = self.ro.value()
-            if last != val:
-                target_temp = self.controller.get_target_temp()
-                delta = val - last
-                self.controller.set_target_temp(target_temp + delta)
-                last = val
-            await aio.sleep_ms(50)
+            delta = val - last
+            target_temp = self.controller.get_target_temp()
+            self.controller.set_target_temp(target_temp + delta)
+            last = val
+            self.event.clear()
 
 
