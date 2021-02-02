@@ -1,5 +1,6 @@
 import uasyncio as aio
 from machine import Pin, ADC
+from primitives.queue import Queue
 
 PILOT_ON_THRESHOLD = 200
 PILOT_ON_STATE = 0
@@ -58,6 +59,7 @@ class Controller:
         self.thermo2_adc_value = 0
         self.pilot_adc_value = 0
         self.update_listener = []
+        self.action_queue = Queue()
 
         # init pin states
         self.pilot_state(PILOT_OFF_STATE)
@@ -164,60 +166,80 @@ class Controller:
     def get_pilot_adc_value(self):
         return self.pilot_adc_value
 
-    async def monitor(self):
-        # turn on temptest
-        self.pins['temptest_en'].value(TEMPTEST_ON_STATE)
-        await aio.sleep_ms(10)
+    async def action(self):
 
-        # read adc values
-        self.thermo1_adc_value = self.adcs['thermo1_adc'].read()
-        await aio.sleep_ms(10)
-        self.thermo2_adc_value = self.adcs['thermo2_adc'].read()
-        await aio.sleep_ms(10)
-        self.pilot_adc_value = self.adcs['pilot_adc'].read()
-        await aio.sleep_ms(10)
-
-        # turn off temptest
-        self.pins['temptest_en'].value(TEMPTEST_OFF_STATE)
-
-        self.pilot_reading = int(((self.pilot_reading << 2) + self.pilot_adc_value) / 5)
-        pilot_off = self.pilot_reading <= PILOT_ON_THRESHOLD
-
-        thermo_avg = (self.thermo1_adc_value + self.thermo2_adc_value) / 2
-        self.current_temp = self._adc_to_celcius(thermo_avg)
-
-        below_target = self.current_temp < (self.target_temp - self.target_delta)
-        above_target = self.current_temp > (self.target_temp + self.target_delta)
-
-        if pilot_off:
-            await self.shutdown()
-        else:
-            self.pilot_state(PILOT_ON_STATE)
-
-            if self.away_mode:
-                await self.stop_heating()
-            elif below_target:
-                await self.start_heating()
-            elif above_target:
-                await self.stop_heating()
-            elif self.operation != "unknown":
-                if self.operation == 'Heating':
-                    await self.start_heating()
-                elif self.operation == 'Idle':
-                    await self.stop_heating()
-                else:
-                    print('unknow operation and do nothing')
-
-                # complete and reset to unknown
-                self.operation = 'unknown'
-
-
-        self.trigger_update()
-
-    async def run(self):
         while True:
+            act = await self.action_queue.get()
+            if act == 'shutdown':
+                await self.shutdown()
+            elif act == 'stop_heating':
+                await self.stop_heating()
+            elif act == 'start_heating':
+                await self.start_heating()
+            elif act == 'pilot_start':
+                self.pilot_state(PILOT_ON_STATE)
+            else:
+                print("unknown action requested:", act)
+
+    def request_action(self, act):
+        self.action_queue.put_nowait(act)
+        print("action requested:", act);
+
+    async def monitor(self):
+
+        while True:
+
             await aio.sleep(1)
-            await self.monitor()
+
+            # turn on temptest
+            self.pins['temptest_en'].value(TEMPTEST_ON_STATE)
+            await aio.sleep_ms(10)
+
+            # read adc values
+            self.thermo1_adc_value = self.adcs['thermo1_adc'].read()
+            await aio.sleep_ms(10)
+            self.thermo2_adc_value = self.adcs['thermo2_adc'].read()
+            await aio.sleep_ms(10)
+            self.pilot_adc_value = self.adcs['pilot_adc'].read()
+            await aio.sleep_ms(10)
+
+            # turn off temptest
+            self.pins['temptest_en'].value(TEMPTEST_OFF_STATE)
+
+            self.pilot_reading = int(((self.pilot_reading << 2) + self.pilot_adc_value) / 5)
+
+            thermo_avg = (self.thermo1_adc_value + self.thermo2_adc_value) / 2
+            self.current_temp = self._adc_to_celcius(thermo_avg)
+
+            pilot_off = self.pilot_reading <= PILOT_ON_THRESHOLD
+            below_target = self.current_temp < (self.target_temp - self.target_delta)
+            above_target = self.current_temp > (self.target_temp + self.target_delta)
+
+
+            if pilot_off:
+                self.request_action('shutdown')
+            else:
+                if self.pilot_state() == PILOT_OFF_STATE:
+                    self.request_action('pilot_start')
+
+                if self.away_mode and self.fire_state() == FIRE_ON_STATE:
+                    self.request_action('stop_heating')
+                elif below_target and self.fire_state() == FIRE_OFF_STATE:
+                    self.request_action('start_heating')
+                elif above_target and self.fire_state() == FIRE_ON_STATE:
+                    self.request_action('stop_heating')
+                elif self.operation != "unknown":
+                    if self.operation == 'Heating' and self.fire_state() == FIRE_OFF_STATE:
+                        self.request_action('start_heating')
+                    elif self.operation == 'Idle' and self.fire_state() == FIRE_ON_STATE:
+                        self.request_action('stop_heating')
+                    else:
+                        print('unknow operation and do nothing')
+
+                    # complete and reset to unknown
+                    self.operation = 'unknown'
+
+            self.trigger_update()
 
 
 

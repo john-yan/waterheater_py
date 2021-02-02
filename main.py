@@ -23,7 +23,8 @@ def main():
     ctl.add_update_listener(mqtt_conn.update)
     ctl.add_update_listener(display.update)
     aio.run(aio.gather(heartbeat(),
-                       ctl.run(),
+                       ctl.monitor(),
+                       ctl.action(),
                        mqtt_conn.run(),
                        rotary.run(),
                        display.run()));
