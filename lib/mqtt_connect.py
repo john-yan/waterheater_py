@@ -51,6 +51,9 @@ class MQTTConnect:
         self.last_state = None
         self.last_temp = None
         self.last_op = None
+        self.last_mode = False
+        self.is_report_adc = False
+        self.last_target = 50.0
 
     async def wifi_handler(self, state):
         print('Wifi is', 'up' if state else 'down')
@@ -65,7 +68,7 @@ class MQTTConnect:
         if self.send_queue.qsize() < 20:
             self.send_queue.put_nowait([topic, msg, qos, retain])
 
-    def report_adc(self, thermo1, thermo2, pilot):
+    def report_adc_value(self, thermo1, thermo2, pilot):
         msg = str(thermo1)
         msg += " " + str(thermo2)
         msg += " " +  str(pilot)
@@ -83,10 +86,14 @@ class MQTTConnect:
             self.last_temp = temp
 
     def report_away_mode(self, mode):
-        self.try_publish(MQTT_AWAY_MODE_TOPIC, 'on' if mode else 'off')
+        if self.last_mode != mode:
+            self.try_publish(MQTT_AWAY_MODE_TOPIC, 'on' if mode else 'off')
+            self.last_mode = mode
 
     def report_target_temp(self, temp):
-        self.try_publish(MQTT_TARGET_TEMP_TOPIC, str(temp))
+        if self.last_target != temp:
+            self.try_publish(MQTT_TARGET_TEMP_TOPIC, str(temp))
+            self.last_target = temp
 
     def report_current_operation(self, op):
         # operation could be 'Heating' or 'Idle'
@@ -94,6 +101,21 @@ class MQTTConnect:
             self.try_publish(MQTT_OPERATION_TOPIC, op)
             self.last_op = op
 
+    # update callback
+    def update(self):
+
+        from controller import PILOT_OFF_STATE, FIRE_ON_STATE
+
+        if self.is_report_adc:
+            thermo1_adc_value = self.controller.get_thermo1_adc_value
+            thermo2_adc_value = self.controller.get_thermo2_adc_value
+            pilot_adc_value = self.controller.get_pilot_adc_value
+            self.report_adc_value(thermo1_adc_value, thermo2_adc_value, pilot_adc_value)
+        self.report_current_state("off" if self.controller.pilot_state() == PILOT_OFF_STATE else "on")
+        self.report_current_temp(round(self.controller.get_current_temp(), 0))
+        self.report_current_operation('Heating' if self.controller.fire_state() == FIRE_ON_STATE else 'Idle')
+        self.report_away_mode(self.controller.get_away_mode())
+        self.report_target_temp(self.controller.get_target_temp())
 
     async def run(self):
         await self.client.connect()
@@ -122,7 +144,7 @@ class MQTTConnect:
 
         elif topic == MQTT_SET_ADC_TOPIC:
             # msg == 'on' or 'off'
-            self.controller.set_report_adc(True if 'on' == msg else False)
+            self.is_report_adc = True if 'on' == msg else False
 
         elif topic == MQTT_SET_TARGET_TEMP_TOPIC:
             self.controller.set_target_temp(float(msg))

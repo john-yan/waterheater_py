@@ -54,8 +54,12 @@ class Controller:
         self._fire_en = False
         self._fan_en = False
         self.current_temp = 0.0
+        self.thermo1_adc_value = 0
+        self.thermo2_adc_value = 0
+        self.pilot_adc_value = 0
+        self.update_listener = []
 
-        # temptest is reversed
+        # init pin states
         self.pilot_state(PILOT_OFF_STATE)
         self.fire_state(PILOT_OFF_STATE)
         self.fan_state(FAN_OFF_STATE)
@@ -65,8 +69,6 @@ class Controller:
         self.pilot_reading = 0
         self.target_temp = 50.0
         self.target_delta = 5
-        self.mqtt = None
-        self.disp = None
         self.report_adc = False
         self.away_mode = False
         self.operation = "unknown"
@@ -74,22 +76,24 @@ class Controller:
     def set_target_temp(self, temp):
         temp = round(temp, 1)
         self.target_temp = temp
-        self.mqtt.report_target_temp(temp)
-        if self.disp:
-            self.disp.update()
+        self.trigger_update()
 
-    def set_mqtt_connect(self, mqtt_conn):
-        self.mqtt = mqtt_conn
+    def add_update_listener(self, listener):
+        self.update_listener.append(listener)
 
-    def set_display(self, disp):
-        self.disp = disp
+    def trigger_update(self):
+        for listener in self.update_listener:
+            listener()
 
     def set_report_adc(self, yes):
         self.report_adc = yes
 
     def set_away_mode(self, mode):
         self.away_mode = mode
-        self.mqtt.report_away_mode(mode)
+        self.trigger_update()
+
+    def get_away_mode(self):
+        return self.away_mode
 
     def set_operation(self, op):
         self.operation = op
@@ -151,33 +155,39 @@ class Controller:
             await aio.sleep(3)
         self.fan_state(FAN_OFF_STATE)
 
+    def get_thermo1_adc_value(self):
+        return self.thermo1_adc_value
+
+    def get_thermo2_adc_value(self):
+        return self.thermo2_adc_value
+
+    def get_pilot_adc_value(self):
+        return self.pilot_adc_value
+
     async def monitor(self):
         # turn on temptest
         self.pins['temptest_en'].value(TEMPTEST_ON_STATE)
         await aio.sleep_ms(10)
 
         # read adc values
-        thermo1_adc = self.adcs['thermo1_adc'].read()
+        self.thermo1_adc_value = self.adcs['thermo1_adc'].read()
         await aio.sleep_ms(10)
-        thermo2_adc = self.adcs['thermo2_adc'].read()
+        self.thermo2_adc_value = self.adcs['thermo2_adc'].read()
         await aio.sleep_ms(10)
-        pilot_adc = self.adcs['pilot_adc'].read()
+        self.pilot_adc_value = self.adcs['pilot_adc'].read()
         await aio.sleep_ms(10)
 
         # turn off temptest
         self.pins['temptest_en'].value(TEMPTEST_OFF_STATE)
 
-        self.pilot_reading = int(((self.pilot_reading << 2) + pilot_adc) / 5)
+        self.pilot_reading = int(((self.pilot_reading << 2) + self.pilot_adc_value) / 5)
         pilot_off = self.pilot_reading <= PILOT_ON_THRESHOLD
 
-        thermo_avg = (thermo1_adc + thermo2_adc) / 2
+        thermo_avg = (self.thermo1_adc_value + self.thermo2_adc_value) / 2
         self.current_temp = self._adc_to_celcius(thermo_avg)
 
         below_target = self.current_temp < (self.target_temp - self.target_delta)
         above_target = self.current_temp > (self.target_temp + self.target_delta)
-
-        if self.disp:
-            self.disp.update()
 
         if pilot_off:
             await self.shutdown()
@@ -202,12 +212,7 @@ class Controller:
                 self.operation = 'unknown'
 
 
-        # reporting
-        if self.report_adc:
-            self.mqtt.report_adc(thermo1_adc, thermo2_adc, pilot_adc)
-        self.mqtt.report_current_state("off" if pilot_off else "on")
-        self.mqtt.report_current_temp(round(self.current_temp, 0))
-        self.mqtt.report_current_operation('Heating' if self.fire_state() == FIRE_ON_STATE else 'Idle')
+        self.trigger_update()
 
     async def run(self):
         while True:

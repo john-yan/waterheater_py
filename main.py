@@ -6,7 +6,6 @@ from lib.mqtt_connect import MQTTConnect
 from lib.rotary import Rotary
 from lib.display import Display
 
-
 async def heartbeat():
     led = Pin(2, Pin.OUT);
     while True:
@@ -21,8 +20,8 @@ def main():
     mqtt_conn = MQTTConnect(ctl)
     rotary = Rotary(ctl)
     display = Display(ctl)
-    ctl.set_mqtt_connect(mqtt_conn)
-    ctl.set_display(display)
+    ctl.add_update_listener(mqtt_conn.update)
+    ctl.add_update_listener(display.update)
     aio.run(aio.gather(heartbeat(),
                        ctl.run(),
                        mqtt_conn.run(),
