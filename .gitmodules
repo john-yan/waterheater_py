@@ -6,7 +6,7 @@
 	url = https://github.com/peterhinch/micropython-mqtt.git
 [submodule "micropython-rotary"]
 	path = micropython-rotary
-	url = https://github.com/miketeachman/micropython-rotary.git
+	url = git@github.com:john-yan/micropython-rotary.git
 [submodule "python_lcd"]
 	path = python_lcd
 	url = https://github.com/john-yan/python_lcd.git
