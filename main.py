@@ -22,6 +22,7 @@ def main():
     rotary = Rotary(ctl)
     display = Display(ctl)
     ctl.set_mqtt_connect(mqtt_conn)
+    ctl.set_display(display)
     aio.run(aio.gather(heartbeat(),
                        ctl.run(),
                        mqtt_conn.run(),

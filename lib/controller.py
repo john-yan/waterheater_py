@@ -66,6 +66,7 @@ class Controller:
         self.target_temp = 50.0
         self.target_delta = 5
         self.mqtt = None
+        self.disp = None
         self.report_adc = False
         self.away_mode = False
         self.operation = "unknown"
@@ -74,9 +75,14 @@ class Controller:
         temp = round(temp, 1)
         self.target_temp = temp
         self.mqtt.report_target_temp(temp)
+        if self.disp:
+            self.disp.update()
 
     def set_mqtt_connect(self, mqtt_conn):
         self.mqtt = mqtt_conn
+
+    def set_display(self, disp):
+        self.disp = disp
 
     def set_report_adc(self, yes):
         self.report_adc = yes
@@ -169,6 +175,9 @@ class Controller:
 
         below_target = self.current_temp < (self.target_temp - self.target_delta)
         above_target = self.current_temp > (self.target_temp + self.target_delta)
+
+        if self.disp:
+            self.disp.update()
 
         if pilot_off:
             await self.shutdown()

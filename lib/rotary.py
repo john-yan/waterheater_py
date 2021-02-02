@@ -21,7 +21,9 @@ class Rotary:
         while True:
             val = self.ro.value()
             if last != val:
-                print('new value =', val)
+                target_temp = self.controller.get_target_temp()
+                delta = val - last
+                self.controller.set_target_temp(target_temp + delta)
                 last = val
             await aio.sleep_ms(50)
 
