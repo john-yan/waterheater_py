@@ -1,54 +1,28 @@
 import uasyncio as aio
 from machine import Pin, ADC
 from primitives.queue import Queue
-
-PILOT_ON_THRESHOLD = 200
-PILOT_ON_STATE = 0
-PILOT_OFF_STATE = 1
-FIRE_ON_STATE = 0
-FIRE_OFF_STATE = 1
-FAN_ON_STATE = 1
-FAN_OFF_STATE = 0
-TEMPTEST_ON_STATE = 1
-TEMPTEST_OFF_STATE = 0
-ATT_MULTIPLIER = -0.028675
-ATT_CONSTANT = 115.63
-
-default_controller_pin_config = {
-
-    # Digital output pins
-    'pilot_en': 13,
-    'fire_en': 12,
-    'temptest_en': 14,
-    'fan_en': 4,
-
-    # ADC pins
-    'thermo1_adc': 32,
-    'thermo2_adc': 35,
-    'pilot_adc': 33,
-    'fan_adc': 34
-}
+import config as cfg
 
 class Controller:
-    def __init__(self, config = None):
-
-        # verify configuration
-        controller_pin_config = config
-        if controller_pin_config == None:
-            controller_pin_config = default_controller_pin_config
-        else:
-            for key in default_controller_pin_config.keys():
-                assert(key in config and isinstance(config[key], int))
+    def __init__(self):
 
         # create pins and adcs
-        self.pins = {}
-        self.adcs = {}
-        for key in controller_pin_config.keys():
-            if 'adc' in key:
-                self.adcs[key] = ADC(Pin(controller_pin_config[key]))
-                self.adcs[key].atten(ADC.ATTN_11DB)
-            else:
-                self.pins[key] = Pin(controller_pin_config[key], Pin.OUT)
+        self.pins = {
+            'pilot_en': Pin(cfg.PILOT_EN_PIN_NUM, Pin.OUT),
+            'fire_en': Pin(cfg.FIRE_EN_PIN_NUM, Pin.OUT),
+            'temptest_en': Pin(cfg.TEMPTEST_EN_PIN_NUM, Pin.OUT),
+            'fan_en': Pin(cfg.FAN_EN_PIN_NUM, Pin.OUT)
+        }
+
+        self.adcs = {
+            'thermo1_adc': ADC(Pin(cfg.THERMO1_ADC_PIN_NUM)),
+            'thermo2_adc': ADC(Pin(cfg.THERMO2_ADC_PIN_NUM)),
+            'pilot_adc': ADC(Pin(cfg.PILOT_ON_ADC_PIN_NUM)),
+            'fan_adc': ADC(Pin(cfg.FAN_ON_ADC_PIN_NUM))
+        }
+
+        for adc in self.adcs.values():
+            adc.atten(ADC.ATTN_11DB)
 
         # internal states
         self._pilot_en = False
@@ -62,15 +36,15 @@ class Controller:
         self.action_queue = Queue()
 
         # init pin states
-        self.pilot_state(PILOT_OFF_STATE)
-        self.fire_state(PILOT_OFF_STATE)
-        self.fan_state(FAN_OFF_STATE)
-        self.pins['temptest_en'].value(TEMPTEST_OFF_STATE)
+        self.pilot_state(cfg.PILOT_OFF_STATE)
+        self.fire_state(cfg.PILOT_OFF_STATE)
+        self.fan_state(cfg.FAN_OFF_STATE)
+        self.pins['temptest_en'].value(cfg.TEMPTEST_OFF_STATE)
 
         # Controller settings
         self.pilot_reading = 0
-        self.target_temp = 50.0
-        self.target_delta = 5
+        self.target_temp = cfg.DEFAULT_TARGET_TEMPERATURE
+        self.target_delta = cfg.DEFAULT_TARGET_DELTA
         self.report_adc = False
         self.away_mode = False
         self.operation = "unknown"
@@ -107,7 +81,7 @@ class Controller:
         return self.target_temp
 
     def _adc_to_celcius(self, adc_reading):
-        return ATT_MULTIPLIER * adc_reading + ATT_CONSTANT
+        return cfg.ATT_MULTIPLIER * adc_reading + cfg.ATT_CONSTANT
 
     def pilot_state(self, state = None):
         if state == None:
@@ -141,21 +115,21 @@ class Controller:
 
     async def shutdown(self):
         # this should not have normally happen
-        self.pilot_state(PILOT_OFF_STATE)
-        if self.fire_state(FIRE_OFF_STATE) == FIRE_ON_STATE:
+        self.pilot_state(cfg.PILOT_OFF_STATE)
+        if self.fire_state(cfg.FIRE_OFF_STATE) == cfg.FIRE_ON_STATE:
             print("shutdown while fire is on!!!");
             await aio.sleep(3)
-            self.fan_state(FAN_OFF_STATE)
+            self.fan_state(cfg.FAN_OFF_STATE)
 
     async def start_heating(self):
-        if self.fan_state(FAN_ON_STATE) == FAN_OFF_STATE:
+        if self.fan_state(cfg.FAN_ON_STATE) == cfg.FAN_OFF_STATE:
             await aio.sleep(3)
-        self.fire_state(FIRE_ON_STATE)
+        self.fire_state(cfg.FIRE_ON_STATE)
 
     async def stop_heating(self):
-        if self.fire_state(FIRE_OFF_STATE) == FIRE_ON_STATE:
+        if self.fire_state(cfg.FIRE_OFF_STATE) == cfg.FIRE_ON_STATE:
             await aio.sleep(3)
-        self.fan_state(FAN_OFF_STATE)
+        self.fan_state(cfg.FAN_OFF_STATE)
 
     def get_thermo1_adc_value(self):
         return self.thermo1_adc_value
@@ -177,7 +151,7 @@ class Controller:
             elif act == 'start_heating':
                 await self.start_heating()
             elif act == 'pilot_start':
-                self.pilot_state(PILOT_ON_STATE)
+                self.pilot_state(cfg.PILOT_ON_STATE)
             else:
                 print("unknown action requested:", act)
 
@@ -192,7 +166,7 @@ class Controller:
             await aio.sleep(1)
 
             # turn on temptest
-            self.pins['temptest_en'].value(TEMPTEST_ON_STATE)
+            self.pins['temptest_en'].value(cfg.TEMPTEST_ON_STATE)
             await aio.sleep_ms(10)
 
             # read adc values
@@ -204,14 +178,14 @@ class Controller:
             await aio.sleep_ms(10)
 
             # turn off temptest
-            self.pins['temptest_en'].value(TEMPTEST_OFF_STATE)
+            self.pins['temptest_en'].value(cfg.TEMPTEST_OFF_STATE)
 
             self.pilot_reading = int(((self.pilot_reading << 2) + self.pilot_adc_value) / 5)
 
             thermo_avg = (self.thermo1_adc_value + self.thermo2_adc_value) / 2
             self.current_temp = self._adc_to_celcius(thermo_avg)
 
-            pilot_off = self.pilot_reading <= PILOT_ON_THRESHOLD
+            pilot_off = self.pilot_reading <= cfg.PILOT_ON_THRESHOLD
             below_target = self.current_temp < (self.target_temp - self.target_delta)
             above_target = self.current_temp > (self.target_temp + self.target_delta)
 
@@ -219,20 +193,20 @@ class Controller:
             if pilot_off:
                 self.request_action('shutdown')
             else:
-                if self.pilot_state() == PILOT_OFF_STATE:
+                if self.pilot_state() == cfg.PILOT_OFF_STATE:
                     self.request_action('pilot_start')
 
                 if self.away_mode:
-                    if self.fire_state() == FIRE_ON_STATE:
+                    if self.fire_state() == cfg.FIRE_ON_STATE:
                         self.request_action('stop_heating')
-                elif below_target and self.fire_state() == FIRE_OFF_STATE:
+                elif below_target and self.fire_state() == cfg.FIRE_OFF_STATE:
                     self.request_action('start_heating')
-                elif above_target and self.fire_state() == FIRE_ON_STATE:
+                elif above_target and self.fire_state() == cfg.FIRE_ON_STATE:
                     self.request_action('stop_heating')
                 elif self.operation != "unknown":
-                    if self.operation == 'Heating' and self.fire_state() == FIRE_OFF_STATE:
+                    if self.operation == 'Heating' and self.fire_state() == cfg.FIRE_OFF_STATE:
                         self.request_action('start_heating')
-                    elif self.operation == 'Idle' and self.fire_state() == FIRE_ON_STATE:
+                    elif self.operation == 'Idle' and self.fire_state() == cfg.FIRE_ON_STATE:
                         self.request_action('stop_heating')
                     else:
                         print('unknow operation and do nothing')

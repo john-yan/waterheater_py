@@ -57,7 +57,6 @@ class MQTTConnect:
 
     async def wifi_handler(self, state):
         print('Wifi is', 'up' if state else 'down')
-        await aio.sleep(1)
 
     async def conn_handler(self, client):
         for topic in subscription_list:
@@ -104,7 +103,7 @@ class MQTTConnect:
     # update callback
     def update(self):
 
-        from controller import PILOT_OFF_STATE, FIRE_ON_STATE
+        from config import PILOT_OFF_STATE, FIRE_ON_STATE
 
         if self.is_report_adc:
             thermo1_adc_value = self.controller.get_thermo1_adc_value

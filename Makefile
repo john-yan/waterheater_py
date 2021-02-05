@@ -3,6 +3,7 @@ all: prog dependencies
 
 prog:
 	ampy -p /dev/ttyUSB0 put main.py
+	ampy -p /dev/ttyUSB0 put config.py
 	ampy -p /dev/ttyUSB0 put wifi_config.txt
 	ampy -p /dev/ttyUSB0 put lib/controller.py /lib/controller.py
 	ampy -p /dev/ttyUSB0 put lib/mqtt_connect.py /lib/mqtt_connect.py

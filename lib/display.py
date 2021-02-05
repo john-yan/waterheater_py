@@ -2,7 +2,7 @@
 import uasyncio as aio
 from esp32_i2c_lcd_async import I2cLcd
 from machine import Pin, I2C
-from controller import FIRE_ON_STATE
+from config import FIRE_ON_STATE
 
 DEFAULT_I2C_ADDR = 0x27
 
