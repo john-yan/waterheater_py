@@ -6,17 +6,18 @@ from lib.mqtt_connect import MQTTConnect
 from lib.rotary import Rotary
 from lib.display import Display
 
+
 async def heartbeat():
-    led = Pin(2, Pin.OUT);
+    led = Pin(2, Pin.OUT)
     while True:
-        led.on();
-        await aio.sleep(0.1);
-        led.off();
-        await aio.sleep(0.8);
+        led.on()
+        await aio.sleep(0.1)
+        led.off()
+        await aio.sleep(0.8)
 
 
 def main():
-    ctl = Controller();
+    ctl = Controller()
     mqtt_conn = MQTTConnect(ctl)
     rotary = Rotary(ctl)
     display = Display(ctl)
@@ -27,6 +28,7 @@ def main():
                        ctl.action(),
                        mqtt_conn.run(),
                        rotary.run(),
-                       display.run()));
+                       display.run()))
+
 
 main()

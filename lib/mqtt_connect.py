@@ -5,6 +5,7 @@ import config as cfg
 from mqtt_as import config
 from primitives.queue import Queue
 
+
 class MQTTConnect:
     def __init__(self, controller):
 
@@ -17,9 +18,9 @@ class MQTTConnect:
 
         with open(cfg.WIFI_CONFIG_FILE) as f:
             config['ssid'] = f.readline().strip()
-            print('wifi ssid:', config['ssid']);
+            print('wifi ssid:', config['ssid'])
             config['wifi_pw'] = f.readline().strip()
-            print('wifi pw:', config['wifi_pw']);
+            print('wifi pw:', config['wifi_pw'])
 
         self.client = MQTTClient(config)
         self.send_queue = Queue()
@@ -38,16 +39,16 @@ class MQTTConnect:
     async def conn_handler(self, client):
         for topic in cfg.subscription_list:
             await self.client.subscribe(topic, 1)
-            print('subscribe to', topic);
+            print('subscribe to', topic)
 
-    def try_publish(self, topic, msg, qos = 1, retain = False):
+    def try_publish(self, topic, msg, qos=1, retain=False):
         if self.send_queue.qsize() < 20:
             self.send_queue.put_nowait([topic, msg, qos, retain])
 
     def report_adc_value(self, thermo1, thermo2, pilot):
         msg = str(thermo1)
         msg += " " + str(thermo2)
-        msg += " " +  str(pilot)
+        msg += " " + str(pilot)
         self.try_publish(cfg.MQTT_ADC_TOPIC, msg)
 
     def report_current_state(self, state):
@@ -84,10 +85,15 @@ class MQTTConnect:
             thermo1_adc_value = self.controller.get_thermo1_adc_value()
             thermo2_adc_value = self.controller.get_thermo2_adc_value()
             pilot_adc_value = self.controller.get_pilot_adc_value()
-            self.report_adc_value(thermo1_adc_value, thermo2_adc_value, pilot_adc_value)
-        self.report_current_state("off" if self.controller.pilot_state() == cfg.PILOT_OFF_STATE else "on")
+            self.report_adc_value(
+                thermo1_adc_value,
+                thermo2_adc_value,
+                pilot_adc_value)
+        self.report_current_state(
+            "off" if self.controller.pilot_state() == cfg.PILOT_OFF_STATE else "on")
         self.report_current_temp(round(self.controller.get_current_temp(), 0))
-        self.report_current_operation('Heating' if self.controller.fire_state() == cfg.FIRE_ON_STATE else 'Idle')
+        self.report_current_operation(
+            'Heating' if self.controller.fire_state() == cfg.FIRE_ON_STATE else 'Idle')
         self.report_away_mode(self.controller.get_away_mode())
         self.report_target_temp(self.controller.get_target_temp())
 
@@ -107,10 +113,10 @@ class MQTTConnect:
         print("Receive:", topic, msg, retain)
 
         if topic == cfg.MQTT_SET_STATE_TOPIC:
-            print("unable to handle set state request");
+            print("unable to handle set state request")
 
         elif topic == cfg.MQTT_SET_OPERATION_TOPIC:
-            self.controller.set_operation(msg);
+            self.controller.set_operation(msg)
 
         elif topic == cfg.MQTT_SET_AWAY_MODE_TOPIC:
             # msg == 'on' or 'off'
@@ -125,6 +131,3 @@ class MQTTConnect:
 
         else:
             print('Unknow topic')
-
-
-

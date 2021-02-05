@@ -3,6 +3,7 @@ from machine import Pin, ADC
 from primitives.queue import Queue
 import config as cfg
 
+
 class Controller:
     def __init__(self):
 
@@ -83,8 +84,8 @@ class Controller:
     def _adc_to_celcius(self, adc_reading):
         return cfg.ATT_MULTIPLIER * adc_reading + cfg.ATT_CONSTANT
 
-    def pilot_state(self, state = None):
-        if state == None:
+    def pilot_state(self, state=None):
+        if state is None:
             return self._pilot_en
         else:
             #print("set pilot state to ", state);
@@ -93,8 +94,8 @@ class Controller:
             self.pins['pilot_en'].value(state)
             return old_state
 
-    def fire_state(self, state = None):
-        if state == None:
+    def fire_state(self, state=None):
+        if state is None:
             return self._fire_en
         else:
             #print("set fire state to ", state);
@@ -103,8 +104,8 @@ class Controller:
             self.pins['fire_en'].value(state)
             return old_state
 
-    def fan_state(self, state = None):
-        if state == None:
+    def fan_state(self, state=None):
+        if state is None:
             return self._fan_en
         else:
             #print("set fan state to ", state);
@@ -117,7 +118,7 @@ class Controller:
         # this should not have normally happen
         self.pilot_state(cfg.PILOT_OFF_STATE)
         if self.fire_state(cfg.FIRE_OFF_STATE) == cfg.FIRE_ON_STATE:
-            print("shutdown while fire is on!!!");
+            print("shutdown while fire is on!!!")
             await aio.sleep(3)
             self.fan_state(cfg.FAN_OFF_STATE)
 
@@ -157,7 +158,7 @@ class Controller:
 
     def request_action(self, act):
         self.action_queue.put_nowait(act)
-        print("action requested:", act);
+        print("action requested:", act)
 
     async def monitor(self):
 
@@ -180,15 +181,17 @@ class Controller:
             # turn off temptest
             self.pins['temptest_en'].value(cfg.TEMPTEST_OFF_STATE)
 
-            self.pilot_reading = int(((self.pilot_reading << 2) + self.pilot_adc_value) / 5)
+            self.pilot_reading = int(
+                ((self.pilot_reading << 2) + self.pilot_adc_value) / 5)
 
             thermo_avg = (self.thermo1_adc_value + self.thermo2_adc_value) / 2
             self.current_temp = self._adc_to_celcius(thermo_avg)
 
             pilot_off = self.pilot_reading <= cfg.PILOT_ON_THRESHOLD
-            below_target = self.current_temp < (self.target_temp - self.target_delta)
-            above_target = self.current_temp > (self.target_temp + self.target_delta)
-
+            below_target = self.current_temp < (
+                self.target_temp - self.target_delta)
+            above_target = self.current_temp > (
+                self.target_temp + self.target_delta)
 
             if pilot_off:
                 self.request_action('shutdown')
@@ -215,6 +218,3 @@ class Controller:
                     self.operation = 'unknown'
 
             self.trigger_update()
-
-
-

@@ -23,7 +23,7 @@ class Display:
         if self.old_temp_str != temp_str:
             self.old_temp_str = temp_str
             await self.lcd.move_to(0, 0)
-            await self.lcd.putstr(temp_str);
+            await self.lcd.putstr(temp_str)
 
     async def update_state(self, state):
         if self.old_state != state:
@@ -51,4 +51,3 @@ class Display:
 
     def update(self):
         self.update_requested.set()
-
