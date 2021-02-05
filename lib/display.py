@@ -2,9 +2,8 @@
 import uasyncio as aio
 from esp32_i2c_lcd_async import I2cLcd
 from machine import Pin, I2C
-from config import FIRE_ON_STATE
+import config as cfg
 
-DEFAULT_I2C_ADDR = 0x27
 
 class Display:
 
@@ -12,7 +11,9 @@ class Display:
 
         self.controller = controller
         self.i2c = I2C(scl=Pin(22), sda=Pin(21), freq=400000)
-        self.lcd = I2cLcd(self.i2c, DEFAULT_I2C_ADDR, 2, 16)
+        self.lcd = I2cLcd(self.i2c, cfg.DISPLAY_I2C_ADDR,
+                          cfg.DISPLAY_NUM_OF_ROWS,
+                          cfg.DISPLAY_NUM_OF_COLS)
 
         self.update_requested = aio.Event()
         self.old_temp_str = ''
@@ -39,9 +40,10 @@ class Display:
         old_temp_str = ''
         while True:
             await self.update_requested.wait()
-            temp_str = "T:%.1f (%.1f)" % (self.controller.get_current_temp(), self.controller.get_target_temp())
+            temp_str = "T:%.1f (%.1f)" % (self.controller.get_current_temp(),
+                                          self.controller.get_target_temp())
             await self.update_temp(temp_str)
-            state = "Heat" if self.controller.fire_state() == FIRE_ON_STATE else "Idle"
+            state = "Heat" if self.controller.fire_state() == cfg.FIRE_ON_STATE else "Idle"
             state += "(Away)" if self.controller.get_away_mode() else "      "
             await self.update_state(state)
             await aio.sleep_ms(500)

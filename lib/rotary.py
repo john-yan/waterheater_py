@@ -1,21 +1,14 @@
 
 from rotary_irq_esp import RotaryIRQ
 import uasyncio as aio
-
-default_rotary_encoder_pin_config = {
-
-    # Digital input pins
-    'rot_enc_clk': 27,
-    'rot_enc_dt': 26,
-    'rot_btn': 25,
-}
+from config import ROTARY_ENCODER_CLK_PIN_NUM, ROTARY_ENCODER_DT_PIN_NUM
 
 class Rotary:
 
-    def __init__(self, controller, config = default_rotary_encoder_pin_config):
+    def __init__(self, controller):
         self.controller = controller
-        self.ro = RotaryIRQ(pin_num_clk = config['rot_enc_clk'],
-                            pin_num_dt = config['rot_enc_dt'])
+        self.ro = RotaryIRQ(pin_num_clk = ROTARY_ENCODER_CLK_PIN_NUM,
+                            pin_num_dt = ROTARY_ENCODER_DT_PIN_NUM)
         self.event = aio.Event()
         self.ro.add_listener(self.callback)
 
