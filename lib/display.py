@@ -37,6 +37,8 @@ class Display:
         await self.lcd.clear()
         self.lcd.backlight_on()
         self.update_requested.clear()
+        self.controller.add_update_listener(self.update)
+
         old_temp_str = ''
         while True:
             await self.update_requested.wait()
@@ -51,3 +53,4 @@ class Display:
 
     def update(self):
         self.update_requested.set()
+

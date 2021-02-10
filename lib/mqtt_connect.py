@@ -99,6 +99,7 @@ class MQTTConnect:
 
     async def run(self):
         await self.client.connect()
+        self.controller.add_update_listener(self.update)
 
         while True:
             payload = await self.send_queue.get()

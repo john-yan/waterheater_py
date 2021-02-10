@@ -5,6 +5,7 @@ from lib.controller import Controller
 from lib.mqtt_connect import MQTTConnect
 from lib.rotary import Rotary
 from lib.display import Display
+import config as cfg
 
 
 async def heartbeat():
@@ -17,18 +18,24 @@ async def heartbeat():
 
 
 def main():
+    co = [heartbeat()]
+
     ctl = Controller()
+    co.append(ctl.monitor())
+    co.append(ctl.action())
+
     mqtt_conn = MQTTConnect(ctl)
-    rotary = Rotary(ctl)
-    display = Display(ctl)
-    ctl.add_update_listener(mqtt_conn.update)
-    ctl.add_update_listener(display.update)
-    aio.run(aio.gather(heartbeat(),
-                       ctl.monitor(),
-                       ctl.action(),
-                       mqtt_conn.run(),
-                       rotary.run(),
-                       display.run()))
+    co.append(mqtt_conn.run())
+
+    if cfg.ENABLE_ROTARY_ENCODER:
+        rotary = Rotary(ctl)
+        co.append(rotary.run())
+
+    if cfg.ENABLE_DISPLAY:
+        display = Display(ctl)
+        co.append(display.run())
+
+    aio.run(aio.gather(*co))
 
 
 main()
