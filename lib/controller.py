@@ -160,6 +160,13 @@ class Controller:
         self.action_queue.put_nowait(act)
         print("action requested:", act)
 
+    async def run(self):
+        mtask = aio.create_task(self.monitor())
+        atask = aio.create_task(self.action())
+
+        await mtask
+        await atask
+
     async def monitor(self):
 
         while True:

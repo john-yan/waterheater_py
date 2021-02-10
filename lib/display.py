@@ -53,4 +53,3 @@ class Display:
 
     def update(self):
         self.update_requested.set()
-

@@ -21,8 +21,7 @@ def main():
     co = [heartbeat()]
 
     ctl = Controller()
-    co.append(ctl.monitor())
-    co.append(ctl.action())
+    co.append(ctl.run())
 
     mqtt_conn = MQTTConnect(ctl)
     co.append(mqtt_conn.run())
