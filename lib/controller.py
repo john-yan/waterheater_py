@@ -18,9 +18,11 @@ class Controller:
         self.adcs = {
             'thermo1_adc': ADC(Pin(cfg.THERMO1_ADC_PIN_NUM)),
             'thermo2_adc': ADC(Pin(cfg.THERMO2_ADC_PIN_NUM)),
-            'pilot_adc': ADC(Pin(cfg.PILOT_ON_ADC_PIN_NUM)),
-            'fan_adc': ADC(Pin(cfg.FAN_ON_ADC_PIN_NUM))
+            'pilot_adc': ADC(Pin(cfg.PILOT_ON_ADC_PIN_NUM))
         }
+
+        if cfg.ENABLE_FAN_SENSOR:
+            self.adcs['fan_adc'] = ADC(Pin(cfg.FAN_ON_ADC_PIN_NUM))
 
         for adc in self.adcs.values():
             adc.atten(ADC.ATTN_11DB)
@@ -171,7 +173,7 @@ class Controller:
 
         while True:
 
-            await aio.sleep(1)
+            await aio.sleep(3)
 
             # turn on temptest
             self.pins['temptest_en'].value(cfg.TEMPTEST_ON_STATE)

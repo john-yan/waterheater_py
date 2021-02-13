@@ -53,7 +53,7 @@ class MQTTConnect:
 
     def report_current_state(self, state):
         # state could be 'on' or 'off'
-        if state != self.last_state:
+        if state == 'off' or state != self.last_state:
             self.try_publish(cfg.MQTT_STATE_TOPIC, state)
             self.last_state = state
 
